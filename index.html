@@ -70,9 +70,9 @@
     html { background: var(--black); }
 
     body {
-      --page-bg: var(--white);
-      --surface-bg: #ffffff;
-      --surface-alt-bg: var(--carbon-05);
+      --page-bg: transparent;
+      --surface-bg: rgba(255,255,255,0.78);
+      --surface-alt-bg: rgba(245,245,245,0.85);
       --text-primary: var(--black);
       --text-secondary: var(--carbon-60);
       --text-tertiary: var(--carbon-40);
@@ -84,14 +84,16 @@
       touch-action: manipulation;
       transition: background .2s ease, color .2s ease;
     }
+    /* Light theme: page background is transparent so the animated
+       "Pipo" bloom gradient (#bloomBg) shows through. */
     body.theme-light {
-      --page-bg: var(--white);
-      --surface-bg: #ffffff;
-      --surface-alt-bg: var(--carbon-05);
+      --page-bg: transparent;
+      --surface-bg: rgba(255,255,255,0.78);
+      --surface-alt-bg: rgba(245,245,245,0.85);
       --text-primary: var(--black);
       --text-secondary: var(--carbon-60);
       --text-tertiary: var(--carbon-40);
-      --divider: var(--carbon-20);
+      --divider: rgba(11,11,11,0.12);
     }
     body.theme-dark {
       --page-bg: #0e0e0e;
@@ -109,6 +111,26 @@
     button { font-family: inherit; }
 
     body.menu-open { overflow: hidden; }
+
+    /* ── BLOOM FIELD BACKGROUND ("Pipo" gradient) ──
+       Full-bleed fixed layer behind everything. Background is rebuilt
+       every frame by the rAF loop at the bottom of the page; the
+       values below are the static fallback (same as t = 0). */
+    .bloom-bg {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background-color: #FAF9EF;
+      background-image:
+        url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.305'/></svg>"),
+        radial-gradient(circle at 68.1% 46.03%, rgba(230,176,147,1) 0%, rgba(230,176,147,0.844) 10.28%, rgba(230,176,147,0.5) 20.55%, rgba(230,176,147,0.156) 30.83%, rgba(230,176,147,0) 41.1%),
+        radial-gradient(circle at 25.17% 75.99%, rgba(163,206,255,1) 0%, rgba(163,206,255,0.844) 11.15%, rgba(163,206,255,0.5) 22.3%, rgba(163,206,255,0.156) 33.45%, rgba(163,206,255,0) 44.6%),
+        radial-gradient(circle at 53.11% 12.71%, rgba(250,249,239,1) 0%, rgba(250,249,239,0.844) 16.66%, rgba(250,249,239,0.5) 33.33%, rgba(250,249,239,0.156) 49.99%, rgba(250,249,239,0) 66.65%);
+      background-size: 120px 120px, auto, auto, auto;
+      background-blend-mode: overlay, normal, normal, normal;
+    }
+    body.theme-dark .bloom-bg { display: none; }
 
     /* ── HEADER ── */
     .site-header {
@@ -230,6 +252,7 @@
       padding: 18px 24px calc(18px + var(--safe-bottom));
 
       --surface-bg: var(--carbon-80);
+      --surface-alt-bg: #343434;
       --text-primary: var(--white);
       --text-secondary: var(--carbon-30);
       --text-tertiary: var(--carbon-40);
@@ -498,6 +521,9 @@
     document.body.classList.add(saved === 'theme-dark' ? 'theme-dark' : 'theme-light');
   })();
 </script>
+
+<!-- BLOOM FIELD BACKGROUND (animated "Pipo" gradient) -->
+<div class="bloom-bg" id="bloomBg" aria-hidden="true"></div>
 
 <!-- HEADER -->
 <header class="site-header">
@@ -1128,6 +1154,71 @@
 
     document.addEventListener('contextmenu', (e) => e.preventDefault());
   });
+</script>
+
+<!-- ══════════════════════════════════════════════════════════
+     BLOOM FIELD — animated "Pipo" mesh gradient.
+     One radial blob per colour over a solid backdrop. Every
+     modulation is (sin(x + p) - sin(p)), so it is exactly 0 at
+     t = 0 (no snap on start). Per-blob phases are STATIC, and no
+     value is rounded, so the motion is smooth and continuous.
+     ══════════════════════════════════════════════════════════ -->
+<script>
+(function () {
+  var el = document.getElementById('bloomBg');
+  if (!el) return;
+
+  var GRAIN = "url(\"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.305'/></svg>\")";
+
+  // Base position (%), radius (%) and colour per blob, from the Pipo preset.
+  // Stops are the preset's 0 / .844 / .5 / .156 / 0 alpha ramp.
+  var BLOBS = [
+    { x: 68.1,  y: 46.03, r: 41.1,  rgb: '230,176,147', p: 0, p2: 0 }, // Apricot
+    { x: 25.17, y: 75.99, r: 44.6,  rgb: '163,206,255', p: 0, p2: 0 }, // Sky blue
+    { x: 53.11, y: 12.71, r: 66.65, rgb: '250,249,239', p: 0, p2: 0 }  // Paper
+  ];
+  var STOPS = [[0, 1], [0.25, 0.844], [0.5, 0.5], [0.75, 0.156], [1, 0]];
+
+  // Static per-blob phases (a fixed hash of the blob index — never animated).
+  function hashPhase(n) {
+    var s = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+    return (s - Math.floor(s)) * Math.PI * 2;
+  }
+  BLOBS.forEach(function (b, i) {
+    b.p  = hashPhase(i + 1);
+    b.p2 = hashPhase(i + 101);
+  });
+
+  var SPEED = 0.86, AMT = 0.72, DIR = 1;
+
+  function layer(b, ph) {
+    var x = b.x + (Math.sin(ph * 0.55 + b.p)  - Math.sin(b.p))  * 14 * AMT;
+    var y = b.y + (Math.sin(ph * 0.43 + b.p2) - Math.sin(b.p2)) * 14 * AMT;
+    var parts = STOPS.map(function (s) {
+      return 'rgba(' + b.rgb + ',' + s[1] + ') ' + (s[0] * b.r) + '%';
+    });
+    return 'radial-gradient(circle at ' + x + '% ' + y + '%, ' + parts.join(', ') + ')';
+  }
+
+  function render(t) {
+    var ph = t * SPEED;
+    var spin = ph * DIR; // spin is the signed phase fed to the modulations
+    var layers = BLOBS.map(function (b) { return layer(b, spin); });
+    el.style.backgroundImage = GRAIN + ', ' + layers.join(', ');
+  }
+
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  render(0);
+  if (reduce) return;
+
+  var start = null;
+  function frame(now) {
+    if (start === null) start = now;
+    render((now - start) / 1000);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
 </script>
 </body>
 </html>
