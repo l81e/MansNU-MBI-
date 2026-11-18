@@ -464,10 +464,14 @@
     }
     .newsletter-state.is-error { color: var(--orange-dark); }
 
-    /* ── FOOTER ── */
+    /* ── FOOTER ── transparent, text auto-inverts against the gradient.
+       mix-blend-mode: difference with white text flips every pixel to the
+       opposite of whatever is behind it. Don't add transform / opacity /
+       filter to the footer element itself — they break the blend. ── */
     footer {
-      background: var(--black);
-      color: var(--white);
+      background: transparent;
+      color: #fff;
+      mix-blend-mode: difference;
       padding: 48px 40px calc(28px + var(--safe-bottom));
     }
     .footer-inner {
@@ -478,29 +482,30 @@
 
     .footer-logo { margin-bottom: 14px; }
     .footer-logo img { height: 26px; filter: brightness(0) invert(1); }
-    .footer-desc { font-size: 0.83rem; color: var(--carbon-30); line-height: 1.7; margin-bottom: 20px; }
-    .footer-accred { font-size: 0.75rem; color: var(--carbon-40); }
+    .footer-desc { font-size: 0.83rem; color: #fff; line-height: 1.7; margin-bottom: 20px; }
+    .footer-accred { font-size: 0.75rem; color: #fff; }
 
-    .footer-col-title { font-size: 0.68rem; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase; color: var(--carbon-40); margin-bottom: 14px; }
+    .footer-col-title { font-size: 0.68rem; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase; color: #fff; margin-bottom: 14px; }
 
     .social-icons { display: flex; gap: 10px; margin-top: 4px; }
     .social-icon {
       width: 34px; height: 34px; border-radius: 50%;
-      background: rgba(255,255,255,0.08);
+      background: transparent;
+      border: 1px solid #fff;
       display: flex; align-items: center; justify-content: center;
-      transition: background .2s; flex-shrink: 0;
+      transition: opacity .2s; flex-shrink: 0;
     }
-    .social-icon:hover { background: rgba(255,255,255,0.16); }
-    .social-icon svg { width: 16px; height: 16px; fill: var(--white); }
+    .social-icon:hover { opacity: .6; }
+    .social-icon svg { width: 16px; height: 16px; fill: #fff; }
 
-    .footer-divider { max-width: 1160px; margin: 0 auto 18px; border: none; border-top: 1px solid var(--carbon-80); }
+    .footer-divider { max-width: 1160px; margin: 0 auto 18px; border: none; border-top: 1px solid #fff; }
     .footer-bottom {
       max-width: 1160px; margin: 0 auto;
       display: flex; flex-wrap: wrap; gap: 10px 24px;
-      font-size: 0.73rem; color: var(--carbon-40);
+      font-size: 0.73rem; color: #fff;
     }
-    .footer-bottom a { color: var(--carbon-40); }
-    .footer-bottom a:hover { color: var(--white); }
+    .footer-bottom a { color: #fff; }
+    .footer-bottom a:hover { opacity: .6; }
 
     @media (max-width: 600px) {
       section { padding: 48px 20px; }
